@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ghw",
+    srcs = [
+        "alias.go",
+        "doc.go",
+        "host.go",
+    ],
+    importmap = "sustainability.amx/vendor/github.com/jaypipes/ghw",
+    importpath = "github.com/jaypipes/ghw",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/jaypipes/ghw/pkg/baseboard",
+        "//vendor/github.com/jaypipes/ghw/pkg/bios",
+        "//vendor/github.com/jaypipes/ghw/pkg/block",
+        "//vendor/github.com/jaypipes/ghw/pkg/chassis",
+        "//vendor/github.com/jaypipes/ghw/pkg/context",
+        "//vendor/github.com/jaypipes/ghw/pkg/cpu",
+        "//vendor/github.com/jaypipes/ghw/pkg/gpu",
+        "//vendor/github.com/jaypipes/ghw/pkg/marshal",
+        "//vendor/github.com/jaypipes/ghw/pkg/memory",
+        "//vendor/github.com/jaypipes/ghw/pkg/net",
+        "//vendor/github.com/jaypipes/ghw/pkg/option",
+        "//vendor/github.com/jaypipes/ghw/pkg/pci",
+        "//vendor/github.com/jaypipes/ghw/pkg/pci/address",
+        "//vendor/github.com/jaypipes/ghw/pkg/product",
+        "//vendor/github.com/jaypipes/ghw/pkg/topology",
+    ],
+)

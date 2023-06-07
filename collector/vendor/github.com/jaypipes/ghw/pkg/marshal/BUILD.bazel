@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "marshal",
+    srcs = ["marshal.go"],
+    importmap = "sustainability.amx/vendor/github.com/jaypipes/ghw/pkg/marshal",
+    importpath = "github.com/jaypipes/ghw/pkg/marshal",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/ghodss/yaml",
+        "//vendor/github.com/jaypipes/ghw/pkg/context",
+    ],
+)

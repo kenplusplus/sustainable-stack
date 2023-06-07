@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "context",
+    srcs = ["context.go"],
+    importmap = "sustainability.amx/vendor/github.com/jaypipes/ghw/pkg/context",
+    importpath = "github.com/jaypipes/ghw/pkg/context",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/jaypipes/ghw/pkg/option",
+        "//vendor/github.com/jaypipes/ghw/pkg/snapshot",
+    ],
+)
