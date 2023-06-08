@@ -1,7 +1,5 @@
 #! /bin/bash
 
-#!/bin/bash
-
 EVENT=""
 TIME=60
 PID=""

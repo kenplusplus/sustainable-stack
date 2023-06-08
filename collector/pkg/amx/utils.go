@@ -85,7 +85,7 @@ func parseCountValue(count string) (uint64, error) {
 	s := strings.Split(count, ",")
 	res := uint64(0)
 	for _, v := range s {
-		res *= 1000	
+		res *= 1000
 		tmp, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
 			return res, err

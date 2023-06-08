@@ -25,7 +25,7 @@ func (p *PowerCollectionApp) Run() {
 		"namespace", p.scaleInfo.Namespace,
 		"deployment", p.scaleInfo.Deployment,
 		"replicas", p.scaleInfo.ScaleNum)
-	
+
 	err := p.scaleInfo.ScaleAMXPods()
 	if err != nil {
 		utils.Sugar.Errorln(err)

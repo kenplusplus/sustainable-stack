@@ -1,4 +1,4 @@
 .vscode/
-/bazel-*
+/collector/bazel-*
 .bazeldnf/
 .idea
