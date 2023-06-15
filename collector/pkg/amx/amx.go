@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"sustainability.amx/pkg/utils"
+	"sustainability.collector/pkg/utils"
 )
 
 type AMXCollector struct {
@@ -35,14 +35,16 @@ func (a *AMXCollector) Run(quit chan struct{}) {
 	copy(copyed, a.Events)
 	copyed = append(copyed, "cpu_freq", "inferpod_num")
 
-	err = setCPUFreq(a.Freq)
+	err = setCpuFreq(a.Freq)
 	if err != nil {
 		utils.Sugar.Panicln(err)
 	}
 	// store data to csv file
 	go func() {
 		w := csv.NewWriter(f)
-		w.Write(copyed)
+		if err = w.Write(copyed); err != nil {
+			utils.Sugar.Errorf("error writing column header to csv: %s\n", err)
+		}
 		for v := range HWCount {
 			if err := w.Write(v); err != nil {
 				utils.Sugar.Errorf("error writing record to csv: %s\n", err)

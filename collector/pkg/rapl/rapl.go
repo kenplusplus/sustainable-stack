@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
+	"sustainability.collector/pkg/utils"
+
 	"github.com/jaypipes/ghw"
-	"sustainability.amx/pkg/utils"
 )
 
 const (
@@ -18,28 +18,46 @@ const (
 	RAPLMemPath = BasePath + "intel-rapl:%d:0/energy_uj"
 	PkgMax      = 262143328850
 	MemMax      = 65712999613
+	//Type: pkg dram
+	EnergyType = 2
 )
 
-type RAPLPower struct{}
+var (
+	cpu    *ghw.CPUInfo
+	pkgNum int
+)
 
-func (r *RAPLPower) Run(quit chan struct{}) {
+type RAPLEnergy struct{}
+
+func init() {
+	var err error
+	cpu, err = ghw.CPU()
+	if err != nil {
+		utils.Sugar.Errorf("get cpu info error: %s\n", err)
+	}
+	pkgNum = len(cpu.Processors)
+
+}
+func (r *RAPLEnergy) Run(quit chan struct{}) {
 	// open csv file
-	fileName := fmt.Sprintf("power_result_%s.csv", time.Now().Format("20060102150405"))
+	fileName := fmt.Sprintf("energy_result_%s.csv", time.Now().Format("20060102150405"))
 	f, err := os.Create(fileName)
 	if err != nil {
-		utils.Sugar.Panicf("create power_result.csv error: %s\n", err)
+		utils.Sugar.Panicf("create energy_result.csv error: %s\n", err)
 	}
 	defer f.Close()
 
 	// read rapl value
-	power := make(chan []string)
-	go r.readRAPLHelper(quit, power, 60*time.Second)
+	energy := make(chan []string)
+	go r.readRAPLHelper(quit, energy, 60*time.Second)
 
 	// store data to csv file
 	go func() {
 		w := csv.NewWriter(f)
-		w.Write([]string{"Package", "Memory"})
-		for v := range power {
+		if err = w.Write([]string{"Package", "Memory"}); err != nil {
+			utils.Sugar.Errorf("error writing column header to csv: %s\n", err)
+		}
+		for v := range energy {
 			if err := w.Write(v); err != nil {
 				utils.Sugar.Errorf("error writing record to csv: %s\n", err)
 			}
@@ -50,13 +68,13 @@ func (r *RAPLPower) Run(quit chan struct{}) {
 }
 
 // readRAPLHelper gets the calculated rapl value based on interval time.
-func (r *RAPLPower) readRAPLHelper(quit chan struct{}, power chan []string, interval time.Duration) {
+func (r *RAPLEnergy) readRAPLHelper(quit chan struct{}, energy chan []string, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	pre := &[]uint64{0, 0}
 	for {
 		select {
 		case <-ticker.C:
-			power <- calculateDeltaPower(pre)
+			energy <- calculateDeltaEnergy(pre)
 		case <-quit:
 			ticker.Stop()
 			return
@@ -64,62 +82,52 @@ func (r *RAPLPower) readRAPLHelper(quit chan struct{}, power chan []string, inte
 	}
 }
 
-// calculateDeltaPower computes the rapl delta value compared with previous value,
-// and normalizes the raw rapl data.
-func calculateDeltaPower(pre *[]uint64) []string {
-	delta := make([]string, 0, 2)
-	cpu, err := ghw.CPU()
-	if err != nil {
-		utils.Sugar.Errorf("get cpu info error: %s\n", err)
-		return delta
-	}
-	pkgNum := len(cpu.Processors)
-	cur, err := getRAPLPower(pkgNum)
-	if err != nil {
-		utils.Sugar.Errorf("get RAPL power error: %s\n", err)
-		return delta
-	}
-	for i := 0; i < 2; i++ {
-		orginCur := cur[i]
-		if (*pre)[i] > cur[i] {
-			if i == 0 {
-				cur[i] += PkgMax
-			} else {
-				cur[i] += MemMax
-			}
-		}
-		delta = append(delta, strconv.FormatUint(cur[i]-(*pre)[i], 10))
-		(*pre)[i] = orginCur
-	}
-
-	return delta
+// ReadCurrentRapl get the current RAPL value.
+func (r *RAPLEnergy) ReadCurrentRapl() ([]uint64, error) {
+	return getRAPLEnergy(pkgNum)
 }
 
-// getRAPLPower reads rapl value including package and memory
-func getRAPLPower(pkgNum int) ([]uint64, error) {
-	res := make([]uint64, 0, pkgNum)
+// CalculateEnergy calculate the dynamic energy consumed by the accelerator
+// and normalizes the raw data.
+func (r *RAPLEnergy) CalculateDynEnergy(idlePower []uint64, preEnergy []uint64, curEnergy []uint64, timeCost float64) []string {
 
-	for j := 0; j < 2; j++ {
-		cur := uint64(0)
-		path := RAPLPkgPath
-		if j == 1 {
-			path = RAPLMemPath
-		}
-		for i := 0; i < pkgNum; i++ {
-			b, err := os.ReadFile(fmt.Sprintf(path, i))
-			if err != nil {
-				utils.Sugar.Errorf("read file error: %s\n", err)
-				return nil, err
-			}
-			tmp, err := strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64)
-			if err != nil {
-				utils.Sugar.Errorf("convert string to uint error: %s\n", err)
-				return nil, err
-			}
-			cur += tmp
-		}
-		res = append(res, cur)
+	var dynEnergy = make([]string, 0, EnergyType)
+
+	qatEnergy := calculateEnergy(preEnergy, curEnergy)
+
+	for i := 0; i < EnergyType; i++ {
+		tmpEnergy := float64(qatEnergy[i]) - float64(idlePower[i])*timeCost
+		dynEnergy = append(dynEnergy, strconv.FormatFloat(tmpEnergy, 'f', 3, 64))
 	}
 
-	return res, nil
+	return dynEnergy
+}
+
+// GetIdlePower get the idle power over a period of time, in units of uJ/s
+func GetIdlePower(d time.Duration) ([]uint64, error) {
+	utils.Sugar.Infof("get idle energy, please wait %0.3f seconds....\n", d.Seconds())
+	power := make([]uint64, 0, EnergyType)
+
+	pre, err := getRAPLEnergy(pkgNum)
+	if err != nil {
+		utils.Sugar.Errorf("get previous info error: %s\n", err)
+		return nil, err
+	}
+
+	time.Sleep(d)
+
+	cur, err := getRAPLEnergy(pkgNum)
+	if err != nil {
+		utils.Sugar.Errorf("get current info error: %s\n", err)
+		return nil, err
+	}
+
+	//energy /*uJ*/
+	energy := calculateEnergy(pre, cur)
+
+	//Calculate power /* uJ/s */
+	for i := 0; i < EnergyType; i++ {
+		power = append(power, energy[i]/uint64(d.Seconds()))
+	}
+	return power, nil
 }

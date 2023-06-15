@@ -1,6 +1,6 @@
-module sustainability.amx
+module sustainability.collector
 
-go 1.17
+go 1.20
 
 require (
 	github.com/jaypipes/ghw v0.10.0
