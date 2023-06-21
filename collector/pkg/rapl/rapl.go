@@ -16,8 +16,11 @@ const (
 	BasePath    = "/sys/class/powercap/"
 	RAPLPkgPath = BasePath + "intel-rapl:%d/energy_uj"
 	RAPLMemPath = BasePath + "intel-rapl:%d:0/energy_uj"
-	PkgMax      = 262143328850
-	MemMax      = 65712999613
+
+	//RAPLMaxValuesPath
+	PkgMaxPath = BasePath + "intel-rapl:%d/max_energy_range_uj"
+	MemMaxPath = BasePath + "intel-rapl:%d:0/max_energy_range_uj"
+
 	//Type: pkg dram
 	EnergyType = 2
 )
@@ -25,6 +28,8 @@ const (
 var (
 	cpu    *ghw.CPUInfo
 	pkgNum int
+	pkgMax uint64
+	memMax uint64
 )
 
 type RAPLEnergy struct{}
@@ -36,6 +41,16 @@ func init() {
 		utils.Sugar.Errorf("get cpu info error: %s\n", err)
 	}
 	pkgNum = len(cpu.Processors)
+
+	pkgMax, err = getMaxValue(PkgMaxPath)
+	if err != nil {
+		utils.Sugar.Errorf("get package energy max value error: %s\n", err)
+	}
+
+	memMax, err = getMaxValue(MemMaxPath)
+	if err != nil {
+		utils.Sugar.Errorf("get memory energy max value error: %s\n", err)
+	}
 
 }
 func (r *RAPLEnergy) Run(quit chan struct{}) {
@@ -74,7 +89,8 @@ func (r *RAPLEnergy) readRAPLHelper(quit chan struct{}, energy chan []string, in
 	for {
 		select {
 		case <-ticker.C:
-			energy <- calculateDeltaEnergy(pre)
+			delta := calculateDeltaEnergy(pre)
+			energy <- delta[:]
 		case <-quit:
 			ticker.Stop()
 			return
@@ -83,35 +99,35 @@ func (r *RAPLEnergy) readRAPLHelper(quit chan struct{}, energy chan []string, in
 }
 
 // ReadCurrentRapl get the current RAPL value.
-func (r *RAPLEnergy) ReadCurrentRapl() ([]uint64, error) {
+func (r *RAPLEnergy) ReadCurrentRapl() ([EnergyType]uint64, error) {
 	return getRAPLEnergy(pkgNum)
 }
 
 // CalculateEnergy calculate the dynamic energy consumed by the accelerator
 // and normalizes the raw data.
-func (r *RAPLEnergy) CalculateDynEnergy(idlePower []uint64, preEnergy []uint64, curEnergy []uint64, timeCost float64) []string {
+func (r *RAPLEnergy) CalculateDynEnergy(idlePower []uint64, preEnergy [EnergyType]uint64, curEnergy [EnergyType]uint64, timeCost float64) [EnergyType]string {
 
-	var dynEnergy = make([]string, 0, EnergyType)
+	var dynEnergy [EnergyType]string
 
-	qatEnergy := calculateEnergy(preEnergy, curEnergy)
+	deltaEnergy := calculateEnergy(preEnergy, curEnergy)
 
 	for i := 0; i < EnergyType; i++ {
-		tmpEnergy := float64(qatEnergy[i]) - float64(idlePower[i])*timeCost
-		dynEnergy = append(dynEnergy, strconv.FormatFloat(tmpEnergy, 'f', 3, 64))
+		tmpEnergy := float64(deltaEnergy[i]) - float64(idlePower[i])*timeCost
+		dynEnergy[i] = strconv.FormatFloat(tmpEnergy, 'f', 3, 64)
 	}
 
 	return dynEnergy
 }
 
 // GetIdlePower get the idle power over a period of time, in units of uJ/s
-func GetIdlePower(d time.Duration) ([]uint64, error) {
+func GetIdlePower(d time.Duration) ([EnergyType]uint64, error) {
 	utils.Sugar.Infof("get idle energy, please wait %0.3f seconds....\n", d.Seconds())
-	power := make([]uint64, 0, EnergyType)
 
+	var power [EnergyType]uint64
 	pre, err := getRAPLEnergy(pkgNum)
 	if err != nil {
 		utils.Sugar.Errorf("get previous info error: %s\n", err)
-		return nil, err
+		return power, err
 	}
 
 	time.Sleep(d)
@@ -119,7 +135,7 @@ func GetIdlePower(d time.Duration) ([]uint64, error) {
 	cur, err := getRAPLEnergy(pkgNum)
 	if err != nil {
 		utils.Sugar.Errorf("get current info error: %s\n", err)
-		return nil, err
+		return power, err
 	}
 
 	//energy /*uJ*/
@@ -127,7 +143,7 @@ func GetIdlePower(d time.Duration) ([]uint64, error) {
 
 	//Calculate power /* uJ/s */
 	for i := 0; i < EnergyType; i++ {
-		power = append(power, energy[i]/uint64(d.Seconds()))
+		power[i] = energy[i] / uint64(d.Seconds())
 	}
 	return power, nil
 }

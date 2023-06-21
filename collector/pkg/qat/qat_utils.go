@@ -53,7 +53,7 @@ func preProcess(frequency string) ([]string, []uint64, error) {
 		utils.Sugar.Panicf("failed to read input directory: %s\n", err)
 	}
 
-	return inputFiles, idlePower, err
+	return inputFiles, idlePower[:], err
 }
 
 // preCollector collect base data and qzip args from the input file.

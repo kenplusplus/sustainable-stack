@@ -11,9 +11,8 @@ import (
 
 // calculateDeltaEnergy computes the rapl delta value compared with previous value,
 // and normalizes the raw rapl data.
-func calculateDeltaEnergy(pre *[]uint64) []string {
-	delta := make([]string, 0, 2)
-
+func calculateDeltaEnergy(pre *[]uint64) [EnergyType]string {
+	var delta [EnergyType]string
 	cur, err := getRAPLEnergy(pkgNum)
 	if err != nil {
 		utils.Sugar.Errorf("get RAPL energy error: %s\n", err)
@@ -23,12 +22,12 @@ func calculateDeltaEnergy(pre *[]uint64) []string {
 		orginCur := cur[i]
 		if (*pre)[i] > cur[i] {
 			if i == 0 {
-				cur[i] += PkgMax
+				cur[i] += pkgMax
 			} else {
-				cur[i] += MemMax
+				cur[i] += memMax
 			}
 		}
-		delta = append(delta, strconv.FormatUint(cur[i]-(*pre)[i], 10))
+		delta[i] = strconv.FormatUint(cur[i]-(*pre)[i], 10)
 		(*pre)[i] = orginCur
 	}
 
@@ -36,9 +35,8 @@ func calculateDeltaEnergy(pre *[]uint64) []string {
 }
 
 // getRAPLEnergy reads rapl value including package and memory
-func getRAPLEnergy(pkgNum int) ([]uint64, error) {
-	res := make([]uint64, 0, pkgNum)
-
+func getRAPLEnergy(pkgNum int) ([EnergyType]uint64, error) {
+	var res [EnergyType]uint64
 	for j := 0; j < EnergyType; j++ {
 		cur := uint64(0)
 		path := RAPLPkgPath
@@ -49,36 +47,46 @@ func getRAPLEnergy(pkgNum int) ([]uint64, error) {
 			b, err := os.ReadFile(fmt.Sprintf(path, i))
 			if err != nil {
 				utils.Sugar.Errorf("read file error: %s\n", err)
-				return nil, err
+				return res, err
 			}
 			tmp, err := strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64)
 			if err != nil {
 				utils.Sugar.Errorf("convert string to uint error: %s\n", err)
-				return nil, err
+				return res, err
 			}
 			cur += tmp
 		}
-		res = append(res, cur)
+		res[j] = cur
 	}
 
 	return res, nil
 }
 
 // calculateEnergy calculate the delta between two RAPL values.
-func calculateEnergy(pre []uint64, cur []uint64) []uint64 {
-	energy := make([]uint64, 0, EnergyType)
+func calculateEnergy(pre [EnergyType]uint64, cur [EnergyType]uint64) [EnergyType]uint64 {
+	var energy [EnergyType]uint64
 	for i := 0; i < EnergyType; i++ {
 		var tmp uint64
 		if pre[i] > cur[i] {
 			if i == 0 {
-				tmp = (cur[i] + PkgMax - pre[i])
+				tmp = (cur[i] + pkgMax - pre[i])
 			} else {
-				tmp = (cur[i] + MemMax - pre[i])
+				tmp = (cur[i] + memMax - pre[i])
 			}
 		} else {
 			tmp = cur[i] - pre[i]
 		}
-		energy = append(energy, tmp)
+		energy[i] = tmp
 	}
+
 	return energy
+}
+
+// getMaxValue get max RAPL value from RAPLMaxValuesPath
+func getMaxValue(path string) (uint64, error) {
+	maxValue, err := os.ReadFile(fmt.Sprintf(path, 0))
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(strings.TrimSpace(string(maxValue)), 10, 64)
 }

@@ -200,7 +200,7 @@ func raplCollector(qzipArgs []string, idlePower []uint64) ([]string, error) {
 	//calculate energy
 	resEnergy := q.CalculateDynEnergy(idlePower, preEnergy, curEnergy, end)
 
-	result := append([]string{strconv.FormatFloat(end, 'f', 3, 64)}, resEnergy...)
+	result := append([]string{strconv.FormatFloat(end, 'f', 3, 64)}, resEnergy[:]...)
 
 	return result, nil
 }
