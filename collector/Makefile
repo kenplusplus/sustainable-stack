@@ -4,7 +4,7 @@ GO ?= go
 #directory of the project.
 SOURCE := cmd
 BUILD_DIRS := ${SOURCE}/amx ${SOURCE}/qat
-BINARY_NAMES := amx-collector qat-collector
+BINARY_NAMES := amx_collector qat_collector
 GOFILES := pkg cmd 
 
 all: gofmt build
@@ -34,15 +34,17 @@ build: check_gofmt
 		cd $(CURDIR) ;\
 	done
 
-# build binary for amx-collector
+# build binary for AMX power model train data collector
 amx:check_gofmt 
-	@echo "Building amx-collector..."
-	@${GO} build -o amx-collector  ${SOURCE}/amx
+	@echo "Building amx_collector..."
+	@cd ${SOURCE}/amx &&\
+		${GO} build -o amx_collector 
 
-# build binary for qat-collector
+# build binary for QAT power model train data collector 
 qat:check_gofmt 
-	@echo "Building qat-collector..."
-	@${GO} build -o qat-collector  ${SOURCE}/qat
+	@echo "Building qat_collector..."
+	@cd ${SOURCE}/qat &&\
+		${GO} build -o qat_collector  
 
 # ensure all the go.mod/go.sum files are up-to-date including vendor/ directory 
 vendor: 
@@ -63,9 +65,9 @@ clean:
 help: 
 	@echo "Usage: make <target>"
 	@echo
-	@echo " * 'build'  - Build all binaries from cmd."
-	@echo " * 'amx'    - Build binary for amx-collector."
-	@echo " * 'qat'    - Build binary for qat-collector."
+	@echo " * 'build'  - Build all binaries for accelerator power model train data collectors from cmd."
+	@echo " * 'amx'    - Build binary for AMX power model train data collector."
+	@echo " * 'qat'    - Build binary for QAT power model train data collector."
 	@echo " * 'vendor' - Ensure all the go.mod/go.sum files are up-to-date including vendor/ directory."
 	@echo " * 'clean'  - Clean all binaries."
 
