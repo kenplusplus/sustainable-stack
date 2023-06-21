@@ -16,7 +16,7 @@ const (
 )
 
 // ReadTelemetry gets the telemetry value based on interval time
-func ReadTelemetry(quit chan struct{}) (r *ResTelemetry, err error) {
+func ReadTelemetry(stop chan struct{}) (r *ResTelemetry, err error) {
 
 	var res ResTelemetry
 
@@ -30,7 +30,7 @@ func ReadTelemetry(quit chan struct{}) (r *ResTelemetry, err error) {
 	//read device data
 	for {
 		select {
-		case <-quit:
+		case <-stop:
 			ticker.Stop()
 			//stop telemetry
 			err = controlTelemetry(addr, off)

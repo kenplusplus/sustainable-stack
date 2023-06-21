@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"sustainability.collector/pkg/qat"
 	"sustainability.collector/pkg/utils"
 
@@ -12,9 +16,24 @@ type EnergyCollectionApp struct {
 }
 
 func (p *EnergyCollectionApp) Run() {
+	quit := make(chan struct{})
+	defer close(quit)
 
-	p.qatCollector.Run()
+	done := make(chan bool)
 
+	sigs := make(chan os.Signal, 1)
+	defer close(sigs)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go p.qatCollector.Run(done, quit)
+
+	go func() {
+		s := <-sigs
+		quit <- struct{}{}
+		utils.Sugar.Infof("Receive signal %s, exit\n", s)
+	}()
+
+	<-done
 }
 func (p *EnergyCollectionApp) AddFlags() {
 

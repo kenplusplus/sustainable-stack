@@ -4,10 +4,8 @@ import (
 	"encoding/csv"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
 	"sustainability.collector/pkg/rapl"
 	"sustainability.collector/pkg/telemetry"
@@ -36,7 +34,7 @@ type QATCollector struct {
 	ResultDirPath string
 }
 
-func (q *QATCollector) Run() {
+func (q *QATCollector) Run(done chan bool, quit chan struct{}) {
 
 	inputDirPath = q.InputDirPath
 	outputDirPath = q.OutputDirPath
@@ -49,33 +47,40 @@ func (q *QATCollector) Run() {
 		return
 	}
 
+	//prepare csvfile and write column headers
+	err = writeColumnHeaders()
+	if err != nil {
+		utils.Sugar.Errorln(err)
+		return
+	}
+
 	for _, inputFile := range inputFiles {
 
 		baseData, qzipArgs := preCollector(inputFile, q.Freq)
 
-		err, sigs := collectData(baseData, qzipArgs, idlePower)
+		err = collectData(baseData, qzipArgs, idlePower, quit, done)
 		if err != nil {
 			utils.Sugar.Errorln(err)
 			continue
-		} else if sigs != nil {
-			break
 		}
 	}
 
+	utils.Sugar.Infoln("Collection complete.")
+	done <- true
 }
 
 // collectData collect telemetry value & rapl value during compression/decompression
 // and write into csv file
-func collectData(baseData []string, qzipArgs []string, idlePower []uint64) (error, os.Signal) {
+func collectData(baseData []string, qzipArgs []string, idlePower []uint64, quit chan struct{}, done chan bool) error {
 	var (
 		wg      sync.WaitGroup
 		resTele *telemetry.ResTelemetry
-		s       os.Signal
+		resRapl []string
 	)
 
 	//open result csv file
 	resultPath := filepath.Join(resultDirPath, "result.csv")
-	resultFile, err := os.OpenFile(resultPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	resultFile, err := os.OpenFile(resultPath, os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
 		utils.Sugar.Panicf("failed to open result file: %s", err)
 	}
@@ -84,12 +89,8 @@ func collectData(baseData []string, qzipArgs []string, idlePower []uint64) (erro
 	writer := csv.NewWriter(resultFile)
 
 	stopChan := make(chan struct{})
+
 	defer closeChannel(stopChan)
-
-	sigChan := make(chan os.Signal, 1)
-	defer close(sigChan)
-
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	wg.Add(1)
 
@@ -102,16 +103,22 @@ func collectData(baseData []string, qzipArgs []string, idlePower []uint64) (erro
 		}
 	}()
 
-	go func() {
-		s = <-sigChan
-		utils.Sugar.Infof("receive signal %s, stop collect\n", s)
-	}()
+	select {
 
-	//collect rapl value
-	resRapl, err := raplCollector(qzipArgs, idlePower)
-	if err != nil {
-		utils.Sugar.Errorf("failed to collector rapl value:%s \n", err)
-		return err, nil
+	case <-quit:
+		closeChannel(stopChan)
+		utils.Sugar.Infoln("receive a signal, stop collecting")
+
+		//wait for stop telemetry
+		time.Sleep(1 * time.Second)
+		done <- false
+	default:
+		//collect rapl value
+		resRapl, err = raplCollector(qzipArgs, idlePower)
+		if err != nil {
+			utils.Sugar.Errorf("failed to collector rapl value:%s \n", err)
+			return err
+		}
 	}
 
 	//wait for telemetry
@@ -127,16 +134,16 @@ func collectData(baseData []string, qzipArgs []string, idlePower []uint64) (erro
 	err = writer.Write(resData)
 	if err != nil {
 		utils.Sugar.Errorf("failed to write result data :%s \n", err)
-		return err, nil
+		return err
 	}
 
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		utils.Sugar.Errorf("failed to flush data :%s \n", err)
-		return err, nil
+		return err
 	}
 
-	return nil, s
+	return nil
 }
 
 // raplCollector collect rapl value during compression/decompression

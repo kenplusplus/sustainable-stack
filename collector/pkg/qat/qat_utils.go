@@ -1,6 +1,7 @@
 package qat
 
 import (
+	"encoding/csv"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,6 +36,11 @@ func preProcess(frequency string) ([]string, []uint64, error) {
 		if err != nil {
 			return err
 		}
+
+		// Skip the input directory and do not add it to inputFiles
+		if path == inputDirPath {
+			return nil
+		}
 		if !info.IsDir() {
 			inputFiles = append(inputFiles, path)
 		} else {
@@ -57,8 +63,6 @@ func preCollector(inputFile string, frequency string) ([]string, []string) {
 		mode       int
 		args       string
 		outputFile string
-		qzipArgs   = make([]string, 0, 3)
-		baseData   = make([]string, 0, 3)
 	)
 
 	if strings.HasSuffix(inputFile, ".gz") {
@@ -82,9 +86,8 @@ func preCollector(inputFile string, frequency string) ([]string, []string) {
 		outputFile = filepath.Join(outputDirPath, base)
 	}
 
-	baseData = append(baseData, inputFile, frequency, strconv.Itoa(mode))
-	qzipArgs = append(qzipArgs, args, inputFile, outputFile)
-
+	baseData := []string{inputFile, frequency, strconv.Itoa(mode)}
+	qzipArgs := []string{args, inputFile, outputFile}
 	return baseData, qzipArgs
 }
 
@@ -134,4 +137,28 @@ func closeChannel(ch chan struct{}) {
 	default:
 		close(ch)
 	}
+}
+
+// writeColumnHeaders write column headers in the result file
+func writeColumnHeaders() error {
+	columnHeaders := []string{
+		"filename", "freq", "mode", "time_cnt_sum", "pci_trans_sum", "latency_sum", "bw_in_sum",
+		"bw_out_sum", "cpr_sum", "dcpr_sum", "time_cost", "pkg_energy", "dram_energy"}
+
+	//open result csv file
+	resultPath := filepath.Join(resultDirPath, "result.csv")
+	resultFile, err := os.Create(resultPath)
+	if err != nil {
+		utils.Sugar.Panicf("failed to open result file: %s", err)
+		return err
+	}
+	defer resultFile.Close()
+
+	writer := csv.NewWriter(resultFile)
+	if err := writer.Write(columnHeaders); err != nil {
+		utils.Sugar.Errorf("error writing column header to csv: %s\n", err)
+		return err
+	}
+	writer.Flush()
+	return nil
 }
