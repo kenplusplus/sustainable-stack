@@ -57,19 +57,15 @@ func preProcess(frequency string) ([]string, []uint64, error) {
 }
 
 // preCollector collect base data and qzip args from the input file.
-func preCollector(inputFile string, frequency string) ([]string, []string) {
+func preCollector(inputFile string) []string {
 
 	var (
-		mode       int
 		args       string
 		outputFile string
 	)
 
 	if strings.HasSuffix(inputFile, ".gz") {
-		//the input file need to decompress
-		mode = DecompressMode
-
-		//set qzip args
+		//set qzip args for decompression
 		args = "-d "
 
 		//the compressed file extension format changes to the decompressed file extension
@@ -78,17 +74,13 @@ func preCollector(inputFile string, frequency string) ([]string, []string) {
 		outputFile = filepath.Join(outputDirPath, filename)
 
 	} else {
-		//the input file need to compress
-		mode = CompressMode
-
 		//the decompressed file extension format changes to the compressed file extension
 		base := filepath.Base(inputFile)
 		outputFile = filepath.Join(outputDirPath, base)
 	}
 
-	baseData := []string{inputFile, frequency, strconv.Itoa(mode)}
 	qzipArgs := []string{args, inputFile, outputFile}
-	return baseData, qzipArgs
+	return qzipArgs
 }
 
 // structToStringSlice convert a struct to a string slice
@@ -142,8 +134,8 @@ func closeChannel(ch chan struct{}) {
 // writeColumnHeaders write column headers in the result file
 func writeColumnHeaders() error {
 	columnHeaders := []string{
-		"filename", "freq", "mode", "time_cnt_sum", "pci_trans_sum", "latency_sum", "bw_in_sum",
-		"bw_out_sum", "cpr_sum", "dcpr_sum", "time_cost", "pkg_energy", "dram_energy"}
+		"freq", "time_cnt_sum", "pci_trans_sum", "latency_sum", "bw_in_sum",
+		"bw_out_sum", "cpr_sum", "dcpr_sum", "pkg_energy", "dram_energy"}
 
 	//open result csv file
 	resultPath := filepath.Join(resultDirPath, "result.csv")

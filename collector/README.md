@@ -126,12 +126,12 @@ All collected results will be stored in a csv file.
 
 ```bash
 cat result.csv
-# Basic data: filename, freq, mode
-# Telemetry values: time_cnt_sum, pci_trans_sum, latency_sum, bw_in_sum, bw_out_sum, cpr_sum, dcpr_sum, time_cost
+# Basic data: cpu_freq
+# Telemetry values: time_cnt_sum, pci_trans_sum, latency_sum, bw_in_sum, bw_out_sum, cpr_sum, dcpr_sum
 # RAPL values: pkg_energy, dram_energy
-filename,freq,mode,time_cnt_sum,pci_trans_sum,latency_sum,bw_in_sum,bw_out_sum,cpr_sum,dcpr_sum,time_cost,pkg_energy,dram_energy
-../../test/input/test1,2400000,0,1,3,358146,45,48,0,0.000,0.180,730550.065,23522.013
-../../test/input/test2.gz,2400000,1,1,2,22918,14,14,0,0.000,0.178,566359.046,21566.512
+cpu_freq,time_cnt_sum,pci_trans_sum,latency_sum,bw_in_sum,bw_out_sum,cpr_sum,dcpr_sum,pkg_energy,dram_energy
+2400000,25,0,2245690,100855,23007,219,79.31,924294.84,4051.09
+3800000,1,0,133028,8454,65,27,5,86433.1343,750.432278
 ```
 
 And qzip log will be stored in the qzip.log.

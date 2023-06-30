@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 
 	"sustainability.collector/pkg/rapl"
 	"sustainability.collector/pkg/telemetry"
@@ -16,8 +15,6 @@ import (
 )
 
 const (
-	CompressMode = iota
-	DecompressMode
 	idleTime = 1 * time.Minute
 )
 
@@ -54,9 +51,11 @@ func (q *QATCollector) Run(done chan bool, quit chan struct{}) {
 		return
 	}
 
+	baseData := []string{q.Freq}
+
 	for _, inputFile := range inputFiles {
 
-		baseData, qzipArgs := preCollector(inputFile, q.Freq)
+		qzipArgs := preCollector(inputFile)
 
 		err = collectData(baseData, qzipArgs, idlePower, quit, done)
 		if err != nil {
@@ -200,7 +199,5 @@ func raplCollector(qzipArgs []string, idlePower []uint64) ([]string, error) {
 	//calculate energy
 	resEnergy := q.CalculateDynEnergy(idlePower, preEnergy, curEnergy, end)
 
-	result := append([]string{strconv.FormatFloat(end, 'f', 3, 64)}, resEnergy[:]...)
-
-	return result, nil
+	return resEnergy[:], nil
 }
