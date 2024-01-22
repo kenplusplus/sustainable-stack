@@ -1,12 +1,12 @@
 [submodule "external/kepler"]
 	path = external/kepler
-	url = https://github.com/sustainable-computing-io/kepler
+	url = https://github.com/sustainable-computing-io/kepler.git
 [submodule "external/kepler-model-db"]
 	path = external/kepler-model-db
-	url = https://github.com/sustainable-computing-io/kepler-model-db
+	url = https://github.com/sustainable-computing-io/kepler-model-db.git
 [submodule "external/kepler-model-server"]
 	path = external/kepler-model-server
-	url = https://github.com/sustainable-computing-io/kepler-model-server
+	url = https://github.com/sustainable-computing-io/kepler-model-server.git
 [submodule "external/tdx-tools"]
 	path = external/tdx-tools
 	url = https://github.com/intel/tdx-tools
